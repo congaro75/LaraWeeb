@@ -8,18 +8,16 @@ use Illuminate\Database\Eloquent\Model;
 class Post extends Model
 {
     use HasFactory;
-
-    protected $with = [
-        'author'
-    ];
-
+    
     protected $fillable = [
         'message',
+        'image',
         'user_id'
     ];
 
     protected $hidden = [
-        'user_id'
+        'user_id',
+        'updated_at'
     ];
 
     public function author()
@@ -27,4 +25,13 @@ class Post extends Model
         return $this->belongsTo(User::class, 'user_id');
     }
 
+    public function comments()
+    {   
+        return $this->hasMany(Comment::class);
+    }
+
+    public function latestComment()
+    {   
+        return $this->hasOne(Comment::class)->latestOfMany();
+    }
 }

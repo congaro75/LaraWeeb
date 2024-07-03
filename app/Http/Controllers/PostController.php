@@ -2,33 +2,56 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\StorePostRequest;
 use App\Models\Post;
 use App\Http\Requests\UpdatePostRequest;
-use App\Repositories\PostRepository;
+use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\DB;
 
 class PostController extends Controller
 {
-    private $postRepo;
-
-    public function __construct(PostRepository $postRepo) {
-        $this->postRepo = $postRepo;
-    }
-
     public function index()
     {
         return response()->json([
-            'ok' => true,
             'message' => 'Posts index.',
-            'data' => $this->postRepo->all()
+            'posts' => Post::all()->load([ 'author', 'latestComment' ])
         ]);
     }
 
     public function show(Post $post)
     {
         return response()->json([
-            'ok' => true,
             'message' => 'Post show.',
-            'data' => $post
+            'post' => $post->load([ 'author', 'comments', 'latestComment' ])
+        ]);
+    }
+
+    public function store(StorePostRequest $req)
+    {
+        DB::beginTransaction();
+
+        $post = Post::create([
+            ...$req->validated(),
+            'user_id' => auth()->id()
+        ]);
+
+        $image = $req->file('image');
+
+        if ($image) {
+            $path = $post->id.'.'.$image->getClientOriginalExtension();
+
+            $image->storeAs('posts', $path);
+
+            $post->update([
+                'image' => $path
+            ]);
+        }
+
+        DB::commit();
+
+        return response()->json([
+            'message' => 'Post created succesfully.',
+            'post' => $post
         ]);
     }
 
@@ -37,19 +60,24 @@ class PostController extends Controller
         $post->update($request->validated());
 
         return response()->json([
-            'ok' => true,
             'message'=> 'Post updated.',
-            'data' => $post
+            'post' => $post
         ], 201);
     }
 
     public function destroy(Post $post)
     {
+        if ($post->image) {
+            $path = public_path('storage/posts/').$post->image;
+
+            if (File::exists($path)) {
+                File::delete($path);
+            };
+        };
+
         return response()->json([
-            'ok' => true,
             'message'=> 'Post deleted.',
-            'data' => $post->delete()
+            'post' => $post->delete()
         ]);
     }
-
 }
